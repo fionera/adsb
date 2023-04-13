@@ -1,4 +1,5 @@
 // Script to extract squawk codes and descriptions from https://www.flightradars.eu/squawkcodes.html
+// it returns the current column layout on stderr and the data itself on stdout. everything is encoded as TSV
 
 use scraper::{Html, Selector};
 use lazy_static::lazy_static;
@@ -48,6 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
+    eprintln!("Code\tDescription");
     entries.iter().for_each(|(number, description)| {
         println!("{}\t{}", number, description);
     });

@@ -1,4 +1,4 @@
-// Script to extract airline codes and descriptions from https://www.eurocontrol.int/rmalive/regulatorExport.do
+// Script to extract airline codes and descriptions from https://www.eurocontrol.int/rmalive/regulatorListInit.do
 // it returns the current column layout on stderr and the data itself on stdout. everything is encoded as TSV
 
 use std::collections::HashMap;

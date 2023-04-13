@@ -20,6 +20,10 @@ Listing all available tools is possible by not supplying a `--bin` argument to c
 
 https://wiki.jetvision.de/wiki/Mode-S_Beast:Data_Output_Formats
 
+### readsb json
+
+https://github.com/wiedehopf/readsb/blob/dev/README-json.md
+
 ## Coordinates
 
 ### Decimal degrees precision

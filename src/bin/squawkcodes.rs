@@ -13,13 +13,12 @@ fn parse_number(s: &str) -> Vec<i32> {
     let s = s.trim_end_matches('.');
     if s.contains('-') {
         // split by `-` and parse numbers to int
-        let numbers = s.split('-')
-            .take(2) // enforce only two
-            .map(|s| s.parse::<i32>().expect("parsing of number failed"))
-            .collect::<Vec<_>>();
+        let (start, end) = s.split_once('-').unwrap();
+        let start = start.parse::<i32>().expect("parsing of number failed");
+        let end = end.parse::<i32>().expect("parsing of number failed");
 
         // create range
-        return (numbers[0]..numbers[1]).collect::<Vec<i32>>();
+        return (start..end).collect::<Vec<_>>();
     }
 
     vec![s.parse::<i32>().expect("parsing of number failed")]

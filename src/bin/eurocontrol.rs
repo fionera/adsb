@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 use calamine::{DataType, open_workbook_from_rs, Reader, Xls};
-use scraper::{Selector};
+use scraper::{Html, Selector};
 use lazy_static::lazy_static;
 use reqwest::{Client};
 
@@ -14,41 +14,63 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::builder().build()?;
+    let countries = fetch_countries().await?;
 
+    let mut params:HashMap<String, String> = HashMap::new();
+    params.insert(String::from("action"), String::from("search"));
 
-    let mut params = HashMap::new();
-    params.insert("action", "search");
+    let client = Client::builder().cookie_store(true).build()?;
 
-    let request = client.get("https://www.eurocontrol.int/rmalive/regulatorExport.do?type=xls")
-        .build()?;
-    let response = client.execute(request).await?.bytes().await?;
+    for country in countries {
+        eprintln!("Fetching {}", country);
+        params.insert(String::from("operatorState"), country.clone());
 
+        let request = client.post("https://www.eurocontrol.int/rmalive/regulatorList.do")
+            .form(&params)
+            .build()?;
+        client.execute(request).await?.text().await?;
 
-    let mut workbook: Xls<_> = open_workbook_from_rs(Cursor::new(response))?;
-    let sheets = workbook.worksheets();
-    let (_, range) = sheets.first().unwrap();
+        let request = client.get("https://www.eurocontrol.int/rmalive/regulatorExport.do?type=xls")
+            .build()?;
+        let response = client.execute(request).await?.bytes().await?;
 
-    let rows = range.rows()
-        .skip(2)// skip description rows
-        .map(parse_row)
-        .collect::<Vec<_>>();
+        let mut workbook: Xls<_> = open_workbook_from_rs(Cursor::new(response))?;
+        let sheets = workbook.worksheets();
+        let (_, range) = sheets.first().unwrap();
 
-    rows.iter().take(1).for_each(|row|eprintln!("{}", row.join("\t")));
-    rows.iter().skip(1).for_each(|row| println!("{}", row.join("\t")));
+        let rows = range.rows()
+            .skip(2)// skip description rows
+            .map(parse_row)
+            .collect::<Vec<_>>();
+
+        rows.iter().take(1).for_each(|row| eprintln!("COUNTRY\t{}", row.join("\t")));
+        rows.iter().skip(1).for_each(|row| println!("{}\t{}", country, row.join("\t")));
+    }
 
     Ok(())
+}
+
+async fn fetch_countries<'str>() -> Result<Vec<String>, reqwest::Error> {
+    let resp = reqwest::get("https://www.eurocontrol.int/rmalive/regulatorList.do").await?.text().await?;
+    let document = Html::parse_document(&resp);
+    let countries = document.select(&OPTION)
+        .map(|x| x.value().attr("value").unwrap())
+        .filter(|x| !x.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    Ok(countries)
 }
 
 fn parse_row(row: &[DataType]) -> Vec<String> {
     row.iter()
         .map(|column| {
             let value = match column {
-                DataType::Int(v) => v.to_string(),
-                DataType::Float(v) => v.to_string(),
                 DataType::String(v) => v.to_string(),
                 DataType::Bool(v) => v.to_string(),
-                DataType::DateTime(v) => v.to_string(),
+                DataType::Int(_) |
+                DataType::Float(_) |
+                DataType::DateTime(_) => column.as_date().unwrap().to_string(),
                 DataType::Error(e) => panic!("{}", e),
                 DataType::Empty => String::from("")
             };

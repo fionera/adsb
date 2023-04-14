@@ -7,6 +7,14 @@ Collection of DB schema, lookup source and general documentation
 Most of the tools are written in Rust. If you want to run them I recommend setting up the current stable toolchain
 via https://rustup.rs.
 
+For building the Go Protobuf files you need:
+```
+go install github.com/bufbuild/buf/cmd/buf@v1.17.0
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+```
+afterwards you can generate the proto files with `buf generate`
+
 ### Running a tool
 
 To run a specific tool you can use:

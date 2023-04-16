@@ -9,9 +9,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 	"log"
-	"time"
 )
 
 var (

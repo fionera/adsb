@@ -7,3 +7,10 @@ message Frame {
   bytes Data = 2;
 }
 
+message Ack {
+
+}
+
+service FrameStreamer {
+  rpc SendFrames(stream Frame) returns (Ack) {}
+}

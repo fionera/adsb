@@ -2,15 +2,31 @@ package main
 
 import (
 	"flag"
-	"github.com/fionera/adsb/gen/pb"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/grpc"
 	"log"
 	"net"
+
+	"github.com/fionera/adsb/gen/pb"
 )
 
 var (
 	listenAddr string
 )
+
+type server struct {
+	pb.UnimplementedFrameStreamerServer
+}
+
+func (s *server) SendFrames(conn pb.FrameStreamer_SendFramesServer) error {
+	for {
+		frame, err := conn.Recv()
+		if err != nil {
+			return err
+		}
+
+		log.Println(net.IP(frame.SrcIP).String())
+	}
+}
 
 func main() {
 	flag.StringVar(&listenAddr, "target-addr", "", "The address:port to forward to")
@@ -20,37 +36,13 @@ func main() {
 		log.Fatal("invalid addr")
 	}
 
-	conn, err := net.Listen("tcp", listenAddr)
+	s := grpc.NewServer()
+	pb.RegisterFrameStreamerServer(s, &server{})
+
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for {
-		accept, err := conn.Accept()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		go func() {
-			var frame pb.Frame
-
-			data := make([]byte, 4096)
-			for {
-				frame.Reset()
-
-				length, err := accept.Read(data)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-
-				if err := proto.Unmarshal(data[:length], &frame); err != nil {
-					return
-				}
-
-				log.Println(net.IP(frame.SrcIP).String())
-			}
-		}()
-	}
+	log.Fatal(s.Serve(lis))
 }

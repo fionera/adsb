@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/fionera/adsb/gen/pb"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/afpacket"
 	"github.com/google/gopacket/layers"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"log"
-	"net"
 	"time"
 )
 
@@ -39,10 +41,17 @@ func main() {
 	}
 
 reconn:
-	conn, err := net.Dial("tcp", targetAddress)
+	conn, err := grpc.Dial(targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Println(err)
-		time.Sleep(1 * time.Second)
+		goto reconn
+	}
+	defer conn.Close()
+
+	c := pb.NewFrameStreamerClient(conn)
+	f, err := c.SendFrames(context.Background())
+	if err != nil {
+		log.Println(err)
 		goto reconn
 	}
 
@@ -72,13 +81,7 @@ reconn:
 
 		currFrame.Data = data
 
-		bytes, err := proto.Marshal(&currFrame)
-		if err != nil {
-			log.Println("failed marshal", err)
-			continue
-		}
-
-		if _, err := conn.Write(bytes); err != nil {
+		if err := f.Send(&currFrame); err != nil {
 			log.Println(err)
 			// jump to reconnect
 			goto reconn

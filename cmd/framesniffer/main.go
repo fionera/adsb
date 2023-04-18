@@ -15,8 +15,6 @@ import (
 var (
 	targetPort    int
 	targetAddress string
-
-	currFrame pb.Frame
 )
 
 func main() {
@@ -38,30 +36,35 @@ func main() {
 		log.Fatalf("opening interface: %v", err)
 	}
 
-reconn:
+	for {
+		if err := loop(handle); err != nil {
+			log.Println(err)
+		}
+	}
+
+}
+
+func loop(handle *afpacket.TPacket) error {
 	conn, err := grpc.Dial(targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Println(err)
-		goto reconn
+		return err
 	}
 	defer conn.Close()
 
-	c := pb.NewFrameStreamerClient(conn)
-	f, err := c.SendFrames(context.Background())
+	f, err := pb.NewFrameStreamerClient(conn).SendFrames(context.Background())
 	if err != nil {
-		log.Println(err)
-		goto reconn
+		return err
 	}
 
 	for {
-		currFrame.Reset()
+		var currFrame pb.Frame
 
 		data, _, err := handle.ZeroCopyReadPacketData()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		packet := gopacket.NewPacket(data, layers.LayerTypeIPv4, gopacket.Default)
+		packet := gopacket.NewPacket(data, layers.LayerTypeIPv4, gopacket.NoCopy)
 		var dstPort int
 		for _, layer := range packet.Layers() {
 			switch layer.(type) {
@@ -80,9 +83,8 @@ reconn:
 		currFrame.Data = data
 
 		if err := f.Send(&currFrame); err != nil {
-			log.Println(err)
-			// jump to reconnect
-			goto reconn
+			return err
 		}
 	}
+	return nil
 }
